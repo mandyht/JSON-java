@@ -23,6 +23,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+/**
+ * Revised by Mandy Tsai.
+ * 1/19/2021
+ */
 
 import java.io.Reader;
 import java.io.StringReader;
@@ -707,6 +711,45 @@ public class XML {
      */
     public static JSONObject toJSONObject(String string, XMLParserConfiguration config) throws JSONException {
         return toJSONObject(new StringReader(string), config);
+    }
+
+    /**
+     * 
+     * 
+     * @param reader
+     * @param path
+     * @return
+     */
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path) {
+        XMLTokener token = new XMLTokener(reader);
+        JSONObject output = new JSONObject();
+        Object content = null;
+
+        while (token.more()) {
+            token.skipPast("<");
+            if (token.more()) {
+                
+                parse(token, output, null, XMLParserConfiguration.ORIGINAL);
+
+                if ( (content = output.optQuery(path)) != null ) break;
+            }
+        }
+
+        if (content != null && content instanceof JSONObject) {
+            return (JSONObject) content;
+        }
+        return null;
+    }
+
+    /**
+     * 
+     * @param reader
+     * @param path
+     * @param replacement
+     * @return
+     */
+    public static void toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
+
     }
 
     /**
