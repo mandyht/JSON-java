@@ -920,7 +920,8 @@ public class XML {
     public static JSONObject toJSONObject(Reader reader, JSONPointer path) {
         XMLTokener token = new XMLTokener(reader);
         JSONObject output = new JSONObject();
-        String[] keys = path.toString().substring(1).split("/");
+        String p = path.toString();
+        String[] keys = p.substring(p.indexOf("/") + 1).split("/");
 
         int index = 0;
         while (token.more()) {
@@ -941,8 +942,15 @@ public class XML {
      * @param replacement
      * @return
      */
-    public static void toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
+        JSONObject output = toJSONObject(reader);
+        //String[] keys = path.toString().substring(1)
+        
+        //Object o2 = output.optQuery(path);
 
+        //System.out.println(o.toString().equals(o2.toString()));
+        
+        return output;
     }
 
     /**
