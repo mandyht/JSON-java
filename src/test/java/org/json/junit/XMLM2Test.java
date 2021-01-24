@@ -22,14 +22,6 @@ public class XMLM2Test {
     private final static String DIR = Paths.get("samples").toAbsolutePath().toString();
 
     @Test
-    public void toJSONObjectStringsXMLExtractEmptyPath() throws FileNotFoundException {
-        JSONPointer path = new JSONPointer("/");
-        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
-        assertTrue(o instanceof JSONObject);
-        assertTrue(o.length() == 0);
-    }
-
-    @Test
     public void toJSONObjectStringsXMLExtractRoot() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/resources");
         JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
@@ -63,5 +55,21 @@ public class XMLM2Test {
         JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "test.xml")), path);
         assertTrue(o.get("nested-array") instanceof JSONObject);
         assertTrue(((JSONObject) o.get("nested-array")).get("ch") instanceof JSONObject);
+    }
+
+    @Test
+    public void toJSONObjectInvalidPath() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/");
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        assertTrue(o instanceof JSONObject);
+
+        JSONObject o2 = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")));
+        assertTrue(o.toString().equals(o2.toString()));
+    }
+    
+    @Test
+    public void toJSONObjectStringsXMLReplaceNestedKey() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/resources/string-array");
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
     }
 }
