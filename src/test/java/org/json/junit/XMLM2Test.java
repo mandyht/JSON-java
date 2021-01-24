@@ -50,6 +50,24 @@ public class XMLM2Test {
     }
 
     @Test
+    public void toJSONOjectBooksXMLExtractJSONArrayElement() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/catalog/book/0/author");
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "books.xml")), path);
+        assertTrue(o.get("author").equals("Gambardella, Matthew"));
+        
+        path = new JSONPointer("/catalog/book/2/publish_date");
+        o = XML.toJSONObject(new FileReader(new File(DIR, "books.xml")), path);
+        assertTrue(o.get("publish_date").equals("2000-11-17"));
+
+        path = new JSONPointer("/catalog/book/11");
+        o = XML.toJSONObject(new FileReader(new File(DIR, "books.xml")), path);
+        
+        JSONObject o2 = XML.toJSONObject(new FileReader(new File(DIR, "books.xml")));
+        Object value = o2.optQuery(path);
+        assertTrue(o.get("book").toString().equals(((JSONObject) value).toString()));
+    }
+
+    @Test
     public void toJSONObjectTestXMLExtractNestedKey() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/nested-array");
         JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "test.xml")), path);
@@ -79,6 +97,18 @@ public class XMLM2Test {
     public void toJSONObjectInvalidPath() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/resources//string-array");
         JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        assertTrue(o == null);
+
+        path = new JSONPointer("/3/string");
+        o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        assertTrue(o == null);
+
+        path = new JSONPointer("/resources/string-array/0/0");
+        o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        assertTrue(o == null);
+
+        path = new JSONPointer("/resources/string-array/3");
+        o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
         assertTrue(o == null);
     }
 

@@ -451,6 +451,8 @@ public class XML {
      * @throws JSONException
      */
     private static int parseByPath(XMLTokener x, JSONObject context, String[] keys, int keyIndex) throws JSONException {
+        final int trueIndex = keyIndex;
+
         char c;
         int i;
         JSONObject jsonObject = null;
@@ -459,6 +461,42 @@ public class XML {
         Object token;
         XMLParserConfiguration config = XMLParserConfiguration.ORIGINAL;
         
+        try {
+            int arrayIndex = Integer.parseInt(keys[keyIndex]);
+            
+            //if we're looking for an index in the array
+            //isFinal: this int key is the final key
+            boolean isFinal = (keyIndex + 1 == keys.length);
+            for (int j = 0; j < arrayIndex; j++) {
+                
+                //skip to the index that we want
+                if (!isFinal || j + 1 < arrayIndex) {
+                    x.skipPast("<" + keys[keyIndex - 1]);
+                    if (!x.more()) return keyIndex - 2;
+                }
+                else {
+                    //don't skip past the tag name if the int key is the 
+                    //final key, because we want all of the content 
+                    //associated with that key
+                    x.skipPast("/" + keys[keyIndex - 1]);
+                    if (!x.more()) return keyIndex - 1;
+                }
+                
+                x.skipPast("<");
+                if (!x.more()) return keyIndex - 1;
+            }
+
+            //update the keyIndex value so later checks aren't
+            //matching the tag names with the index value
+            if (keyIndex + 1 < keys.length) {
+                keyIndex++;
+            }
+            else {
+                keyIndex--;
+            }
+        }
+        catch (NumberFormatException e) {}
+
         token = x.nextToken();
 
         //skip the comments and the CDATA blocks
@@ -505,13 +543,31 @@ public class XML {
         //check if it matches the previous key 
         else if (token == SLASH) {
             token = x.nextToken();
-            if (keyIndex - 1 >= 0 && !token.equals(keys[keyIndex - 1])) {
-                throw x.syntaxError("Mismatched " + keys[keyIndex - 1] + " and " + token);
+            
+            if (keyIndex >= 0 && !token.equals(keys[keyIndex])) {
+                //also check with the previous tag, because we may be 
+                //trying to find a key that doesn't exist
+                if (keyIndex - 1 >= 0 && !token.equals(keys[keyIndex - 1])) {
+                    throw x.syntaxError("Mismatched " + keys[keyIndex - 1] + " and " + token);
+                }
             }
             if (x.nextToken() != GT) {
                 throw x.syntaxError("Misshaped close tag");
             }
-            return keyIndex - 1;
+
+            if (keyIndex - 1 >= 0) {
+                try {
+                    //if the previous index is an int, return 3 indices prior
+                    //because we don't want to search for the next key in the
+                    //array
+                    Integer.parseInt(keys[keyIndex - 1]);
+                    if (keyIndex - 3 >= 0) return keyIndex - 3;
+                }
+                catch (NumberFormatException e) {
+                    return keyIndex - 1;
+                }
+            }
+            return 0;
         }
 
         else if (token instanceof Character) {
@@ -533,25 +589,24 @@ public class XML {
             }
             else {
                 //if we aren't at the last key yet, move to the next element
-                if (keyIndex + 1 < keys.length) {
+                if (keyIndex + 1 < keys.length && trueIndex + 1 < keys.length) {
                     x.skipPast("<");
                     if (!x.more()) return keyIndex;
-                    return parseByPath(x, context, keys, keyIndex + 1);
+                    return parseByPath(x, context, keys, trueIndex + 1);
                 }
 
                 //only add to context if we are at the last key
                 else {
                     jsonObject = new JSONObject();
-
-                    for (;;) {
+                    while (true) {
                         if (token == null) token = x.nextToken();
                         
-                        // attribute = value
+                        //Attribute = value
                         if (token instanceof String) {
-                            string = (String) token;
+                            string = (String) token; //string: attribute
                             token = x.nextToken();
                             if (token == EQ) {
-                                token = x.nextToken();
+                                token = x.nextToken(); //token: value
                                 if (!(token instanceof String)) {
                                     throw x.syntaxError("Missing value");
                                 }
@@ -578,12 +633,11 @@ public class XML {
                                 context.accumulate(tagName, "");
                             }
                             return keyIndex;
-        
                         } 
                         
                         //Content, characters between <...> and </...>
                         else if (token == GT) {
-                            for (;;) {
+                            while (true) {
                                 token = x.nextContent();
                                 if (token == null) {
                                     if (tagName != null) {
@@ -597,7 +651,6 @@ public class XML {
                                     if (!string.isEmpty()) {
                                         jsonObject.accumulate(config.getcDataTagName(), string);
                                     }
-        
                                 } 
                                 
                                 //Nested element
@@ -610,6 +663,20 @@ public class XML {
                                             context.accumulate(tagName, jsonObject.opt(config.getcDataTagName()));
                                         } else {
                                             context.accumulate(tagName, jsonObject);
+                                        }
+
+                                        //if the keyIndex doesn't match the trueIndex, then we're looking
+                                        //for something in an array
+                                        if (keyIndex - 1 >= 0) {
+                                            //if trueIndex > keyIndex, the final key is an index
+                                            //return the tag before the current tag we're checking
+                                            if (trueIndex > keyIndex) return keyIndex - 1;
+                                            try {
+                                                //if the previous index is an int, return 2 indices prior
+                                                Integer.parseInt(keys[keyIndex - 1]);
+                                                if (keyIndex - 2 >= 0) return keyIndex - 2;
+                                            }
+                                            catch (NumberFormatException e) {}
                                         }
                                         return keyIndex;
                                     }
@@ -927,8 +994,19 @@ public class XML {
         if (keys.length == 0) return null;
 
         //check for syntax
-        for (String k : keys) {
-            if (k.isEmpty()) return null;
+        for (int i = 0; i < keys.length; i++) {
+            //an xml does not allow empty tags, so
+            //we don't have to handle them
+            if (keys[i].isEmpty()) return null;
+            try {
+                //an xml cannot have an integer key, so having
+                //two integer keys in a row is not valid
+                Integer.parseInt(keys[i]);
+                if (i == 0) return null;
+                Integer.parseInt(keys[i - 1]);
+                return null;
+            }
+            catch (NumberFormatException e) {}
         }
         
         int index = 0;
@@ -938,6 +1016,9 @@ public class XML {
                 index = parseByPath(token, output, keys, index);
             }
         }
+
+        //if nothing is found return null
+        if (output.length() == 0) return null;
         return output;
     }
 
