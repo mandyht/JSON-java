@@ -83,11 +83,43 @@ public class XMLM2Test {
     }
 
     @Test
-    public void toJSONObjectStringsXMLReplaceNestedKey() throws FileNotFoundException {
-        JSONPointer path = new JSONPointer("/resources/string-array");
-        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
+    public void toJSONObjectStringsXMLReplaceRoot() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/resources");
+        JSONObject replacement = new JSONObject();
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, replacement);
+        assertTrue(o.get("resources") == replacement);
     }
 
+    @Test
+    public void toJSONObjectStringsXMLReplaceNestedKey() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/resources/string-array");
+        JSONObject replacement = new JSONObject();
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, replacement);
+        Object value = o.optQuery("/resources/string-array");
+        assertTrue(value == replacement);
+    }
+
+    @Test
+    public void toJSONObjectBookssXMLReplaceRoot() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/catalog");
+        JSONObject replacement = new JSONObject();
+        replacement.put("key", "value");
+
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "books.xml")), path, replacement);
+        assertTrue(o.get("catalog") == replacement);
+    }
+
+    @Test
+    public void toJSONObjectBooksXMLReplaceNestedKey() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/catalog/book");
+        JSONObject replacement = new JSONObject();
+        replacement.put("key", "value");
+        replacement.put("key2", "value2");
+        
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "books.xml")), path, replacement);
+        Object value = o.optQuery("/catalog/book");
+        assertTrue(value == replacement);
+    }
 
     @Test
     public void toJSONObjectReplaceEmptyPath() throws FileNotFoundException {
@@ -110,6 +142,7 @@ public class XMLM2Test {
     @Test 
     public void toJSONObjectReplaceInvalidPath() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/resources//string-array");
-        XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
+        assertTrue(o == null);
     }
 }
