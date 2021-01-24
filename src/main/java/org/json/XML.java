@@ -23,10 +23,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+/**
+ * Revised by Mandy Tsai.
+ * 1/19/2021
+ */
 
 import java.io.Reader;
 import java.io.StringReader;
-import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Iterator;
@@ -433,6 +436,196 @@ public class XML {
     }
 
     /**
+     * @author Mandy Tsai
+     * Scan the content, attach it to the content if the current element is the last key in the path
+     * 
+     * Source: This is a stripped down and modified version of parse() available in the open-sourced
+     *         JSON-java library
+     *    URL: https://github.com/stleary/JSON-java
+     *
+     * @param x the XMLTokener containing the source string.
+     * @param context the JSONObject that will include the new material.
+     * @param keys an array of keys as a path to follow
+     * @param keyIndex the index to the key that we are looking for
+     * @return the index of the key to search for next
+     * @throws JSONException
+     */
+    private static int parseByPath(XMLTokener x, JSONObject context, String[] keys, int keyIndex) throws JSONException {
+        char c;
+        int i;
+        JSONObject jsonObject = null;
+        String string;
+        String tagName;
+        Object token;
+        XMLParserConfiguration config = XMLParserConfiguration.ORIGINAL;
+        
+        token = x.nextToken();
+
+        //skip the comments and the CDATA blocks
+        if (token == BANG) {
+            c = x.next();
+            if (c == '-') {
+                if (x.next() == '-') {
+                    x.skipPast("-->");
+                    return keyIndex;
+                }
+                x.back();
+            }
+            else if (c == '[') {
+                token = x.nextToken();
+                if ("CDATA".equals(token)) {
+                    if (x.next() == '[') {
+                        x.nextCDATA();
+                        return keyIndex;
+                    }
+                }
+                throw x.syntaxError("Expected 'CDATA['");
+            }
+            i = 1;
+            do {
+                token = x.nextMeta();
+                if (token == null) {
+                    throw x.syntaxError("Missing '>' after '<!'.");
+                } else if (token == LT) {
+                    i += 1;
+                } else if (token == GT) {
+                    i -= 1;
+                }
+            } while (i > 0);
+            return keyIndex;
+        }
+
+        //skip the processing instruction
+        else if (token == QUEST) {
+            x.skipPast("?>");
+            return keyIndex;
+        }
+
+        //Close tag </
+        //check if it matches the previous key 
+        else if (token == SLASH) {
+            token = x.nextToken();
+            if (keyIndex - 1 >= 0 && !token.equals(keys[keyIndex - 1])) {
+                throw x.syntaxError("Mismatched " + keys[keyIndex - 1] + " and " + token);
+            }
+            if (x.nextToken() != GT) {
+                throw x.syntaxError("Misshaped close tag");
+            }
+            return keyIndex - 1;
+        }
+
+        else if (token instanceof Character) {
+            throw x.syntaxError("Misshaped tag");
+        }
+
+        //Open tag <
+        else {
+            tagName = (String) token;
+            token = null;
+
+            //skip past the element if the key doesn't match our target
+            if (!tagName.equals(keys[keyIndex])) {
+                x.skipPast("/" + tagName);
+                if (!x.more()) return keyIndex;
+                x.skipPast("<");
+                if (!x.more()) return keyIndex;
+                return parseByPath(x, context, keys, keyIndex);
+            }
+            else {
+                //if we aren't at the last key yet, move to the next element
+                if (keyIndex + 1 < keys.length) {
+                    x.skipPast("<");
+                    if (!x.more()) return keyIndex;
+                    return parseByPath(x, context, keys, keyIndex + 1);
+                }
+
+                //only add to context if we are at the last key
+                else {
+                    jsonObject = new JSONObject();
+
+                    for (;;) {
+                        if (token == null) token = x.nextToken();
+                        
+                        // attribute = value
+                        if (token instanceof String) {
+                            string = (String) token;
+                            token = x.nextToken();
+                            if (token == EQ) {
+                                token = x.nextToken();
+                                if (!(token instanceof String)) {
+                                    throw x.syntaxError("Missing value");
+                                }
+                                jsonObject.accumulate(string, (String) token);
+                                token = null;
+                            } 
+                            else {
+                                jsonObject.accumulate(string, "");
+                            }
+                        } 
+                        
+                        //Empty tag <.../>
+                        else if (token == SLASH) {
+                            if (x.nextToken() != GT) {
+                                throw x.syntaxError("Misshaped tag");
+                            }
+                            if (token == null) {
+                                context.accumulate(tagName, JSONObject.NULL);
+                            } 
+                            else if (jsonObject.length() > 0) {
+                                context.accumulate(tagName, jsonObject);
+                            } 
+                            else {
+                                context.accumulate(tagName, "");
+                            }
+                            return keyIndex;
+        
+                        } 
+                        
+                        //Content, characters between <...> and </...>
+                        else if (token == GT) {
+                            for (;;) {
+                                token = x.nextContent();
+                                if (token == null) {
+                                    if (tagName != null) {
+                                        throw x.syntaxError("Unclosed tag " + tagName);
+                                    }
+                                    return keyIndex;
+                                } 
+                                else if (token instanceof String) {
+                                    string = (String) token;
+
+                                    if (!string.isEmpty()) {
+                                        jsonObject.accumulate(config.getcDataTagName(), string);
+                                    }
+        
+                                } 
+                                
+                                //Nested element
+                                else if (token == LT) {
+                                    if (parse(x, jsonObject, tagName, config)) {
+                                        if (jsonObject.length() == 0) {
+                                            context.accumulate(tagName, "");
+                                        } else if (jsonObject.length() == 1
+                                                && jsonObject.opt(config.getcDataTagName()) != null) {
+                                            context.accumulate(tagName, jsonObject.opt(config.getcDataTagName()));
+                                        } else {
+                                            context.accumulate(tagName, jsonObject);
+                                        }
+                                        return keyIndex;
+                                    }
+                                }
+                            }
+
+                        } else {
+                            throw x.syntaxError("Misshaped tag");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * This method tries to convert the given string value to the target object
      * @param string String to convert
      * @param typeConverter value converter to convert string to integer, boolean e.t.c
@@ -707,6 +900,75 @@ public class XML {
      */
     public static JSONObject toJSONObject(String string, XMLParserConfiguration config) throws JSONException {
         return toJSONObject(new StringReader(string), config);
+    }
+
+    /**
+     * @author Mandy Tsai
+     * Find the subobject following the path and return the last key-value pair as a JSONObject
+     * if the path is valid and the keys exist; otherwise, return null
+     * 
+     * Source: This is a modified version of toJSONObject(Reader, XMLParserConfiguration)
+     *         availble in the open-sourced JSON-java library 
+     *    URL: https://github.com/stleary/JSON-java
+     * 
+     * @param reader the XML source reader
+     * @param path a path to the subobject
+     * @return a JSONObject consists of only the last key in the argument and the value 
+     * associated with it in the XML document; otherwise, return null if the key was not 
+     * found 
+     */
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path) {
+        XMLTokener token = new XMLTokener(reader);
+        JSONObject output = new JSONObject();
+        String p = path.toString();
+
+        //empty path
+        String[] keys = p.toString().substring(1).split("/");
+        if (keys.length == 0) return null;
+
+        //check for syntax
+        for (String k : keys) {
+            if (k.isEmpty()) return null;
+        }
+        
+        int index = 0;
+        while (token.more()) {
+            token.skipPast("<");
+            if (token.more()) { 
+                index = parseByPath(token, output, keys, index);
+            }
+        }
+        return output;
+    }
+
+    /**
+     * @author Mandy Tsai
+     * Read the full XML, find the subobject following the given path, replace the last
+     * key's value with the argument if the path is valid and the keys exist, and return 
+     * the JSONObject; otherwise, return null
+     * 
+     * Source: This method is based on update() in JsonUtil submitted for Milestone1 by
+     * Mandy Tsai
+     * 
+     * @param reader the XML source reader
+     * @param path a path to the subobject
+     * @param replacement the new value to map with the last key in the path
+     * @return a JSONObject with the replaced value if the path is valid and the keys 
+     * exist; otherwise, return null
+     */
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
+        JSONObject output = toJSONObject(reader);
+        Object value = output.optQuery(path);
+        
+        if (value == null) return null;
+
+        String p = path.toString();
+
+        //get the last key-value pair
+        value = output.optQuery(p.substring(0, p.lastIndexOf("/")));
+        ((JSONObject) value).put(p.substring(p.lastIndexOf("/") + 1), replacement);
+        
+        return output;
     }
 
     /**
