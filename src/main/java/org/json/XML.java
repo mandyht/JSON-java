@@ -916,19 +916,30 @@ public class XML {
      * @param path a path to the subobject
      * @return a JSONObject consists of only the last key in the argument and the value 
      * associated with it in the XML document
+     * @throws JSONPointerException if the path is not valid
      */
-    public static JSONObject toJSONObject(Reader reader, JSONPointer path) {
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path) throws JSONPointerException {
         XMLTokener token = new XMLTokener(reader);
         JSONObject output = new JSONObject();
         String p = path.toString();
-        
+
         //empty path
         if (p.indexOf("/") + 1 == p.length()) {
             return toJSONObject(reader);
         }
 
-        String[] keys = p.substring(p.indexOf("/") + 1).split("/");
+        String[] keys = p.toString().substring(1).split("/");
+        if (keys.length == 0) {
+            throw new JSONPointerException(p + " is not a valid path");
+        }
 
+        //check for syntax
+        for (String k : keys) {
+            if (k.isEmpty()) {
+                throw new JSONPointerException(p + " is not a valid path");
+            }
+        }
+        
         int index = 0;
         while (token.more()) {
             token.skipPast("<");
@@ -950,7 +961,11 @@ public class XML {
      */
     public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
         String p = path.toString();
-        if (p.indexOf("/") == -1 || p.lastIndexOf("/") + 1 == p.length()) return null;
+        
+        if (p.lastIndexOf("/") + 1 == p.length()) {
+            return null;
+        }
+
 
         String key = p.substring(p.lastIndexOf("/") + 1);
         
