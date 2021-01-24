@@ -505,7 +505,6 @@ public class XML {
         //check if it matches the previous key 
         else if (token == SLASH) {
             token = x.nextToken();
-            System.out.println("SLASH" + " " + String.valueOf(token));
             if (keyIndex - 1 >= 0 && !token.equals(keys[keyIndex - 1])) {
                 throw x.syntaxError("Mismatched " + keys[keyIndex - 1] + " and " + token);
             }
@@ -566,7 +565,6 @@ public class XML {
                         
                         //Empty tag <.../>
                         else if (token == SLASH) {
-                            System.out.print("EMPTY TAG--> ");
                             if (x.nextToken() != GT) {
                                 throw x.syntaxError("Misshaped tag");
                             }
@@ -907,6 +905,7 @@ public class XML {
     /**
      * @author Mandy Tsai
      * Find the subobject following the path and return the last key-value pair as a JSONObject
+     * if the path is valid and the keys exist; otherwise, return null
      * 
      * Source: This is a modified version of toJSONObject(Reader, XMLParserConfiguration)
      *         availble in the open-sourced JSON-java library 
@@ -924,20 +923,12 @@ public class XML {
         String p = path.toString();
 
         //empty path
-        if (p.indexOf("/") + 1 == p.length()) {
-            return null;
-        }
-
         String[] keys = p.toString().substring(1).split("/");
-        if (keys.length == 0) {
-            return null;
-        }
+        if (keys.length == 0) return null;
 
         //check for syntax
         for (String k : keys) {
-            if (k.isEmpty()) {
-                return null;
-            }
+            if (k.isEmpty()) return null;
         }
         
         int index = 0;
@@ -952,49 +943,30 @@ public class XML {
 
     /**
      * @author Mandy Tsai
+     * Read the full XML, find the subobject following the given path, replace the last
+     * key's value with the argument if the path is valid and the keys exist, and return 
+     * the JSONObject; otherwise, return null
      * 
+     * Source: This method is based on update() in JsonUtil submitted for Milestone1 by
+     * Mandy Tsai
      * 
-     * @param reader
-     * @param path
-     * @param replacement
-     * @return
+     * @param reader the XML source reader
+     * @param path a path to the subobject
+     * @param replacement the new value to map with the last key in the path
+     * @return a JSONObject with the replaced value if the path is valid and the keys 
+     * exist; otherwise, return null
      */
-    public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) throws JSONPointerException {
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
         JSONObject output = toJSONObject(reader);
         Object value = output.optQuery(path);
         
-        if (value == null) {
-            System.out.println("null");
-            return null;
-        }
-
+        if (value == null) return null;
 
         String p = path.toString();
-        
-        //empty path
-        if (p.indexOf("/") + 1 == p.length()) {
-            return toJSONObject(reader);
-        }
 
-        String[] keys = p.toString().substring(1).split("/");
-        if (keys.length == 0) {
-            throw new JSONPointerException(p + " is not a valid path");
-        }
-
-        //check for syntax
-        for (String k : keys) {
-            if (k.isEmpty()) {
-                throw new JSONPointerException(p + " is not a valid path");
-            }
-        }
-        
-
-
-        //String[] keys = path.toString().substring(1)
-        
-        //Object o2 = output.optQuery(path);
-
-        //System.out.println(o.toString().equals(o2.toString()));
+        //get the last key-value pair
+        value = output.optQuery(p.substring(0, p.lastIndexOf("/")));
+        ((JSONObject) value).put(p.substring(p.lastIndexOf("/") + 1), replacement);
         
         return output;
     }
