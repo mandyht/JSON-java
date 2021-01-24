@@ -915,28 +915,28 @@ public class XML {
      * @param reader the XML source reader
      * @param path a path to the subobject
      * @return a JSONObject consists of only the last key in the argument and the value 
-     * associated with it in the XML document
-     * @throws JSONPointerException if the path is not valid
+     * associated with it in the XML document; otherwise, return null if the key was not 
+     * found 
      */
-    public static JSONObject toJSONObject(Reader reader, JSONPointer path) throws JSONPointerException {
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path) {
         XMLTokener token = new XMLTokener(reader);
         JSONObject output = new JSONObject();
         String p = path.toString();
 
         //empty path
         if (p.indexOf("/") + 1 == p.length()) {
-            return toJSONObject(reader);
+            return null;
         }
 
         String[] keys = p.toString().substring(1).split("/");
         if (keys.length == 0) {
-            throw new JSONPointerException(p + " is not a valid path");
+            return null;
         }
 
         //check for syntax
         for (String k : keys) {
             if (k.isEmpty()) {
-                throw new JSONPointerException(p + " is not a valid path");
+                return null;
             }
         }
         
@@ -959,18 +959,35 @@ public class XML {
      * @param replacement
      * @return
      */
-    public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
-        String p = path.toString();
+    public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) throws JSONPointerException {
+        JSONObject output = toJSONObject(reader);
+        Object value = output.optQuery(path);
         
-        if (p.lastIndexOf("/") + 1 == p.length()) {
+        if (value == null) {
+            System.out.println("null");
             return null;
         }
 
 
-        String key = p.substring(p.lastIndexOf("/") + 1);
+        String p = path.toString();
         
-        JSONObject output = toJSONObject(reader);
-        Object value = output.optQuery(path);
+        //empty path
+        if (p.indexOf("/") + 1 == p.length()) {
+            return toJSONObject(reader);
+        }
+
+        String[] keys = p.toString().substring(1).split("/");
+        if (keys.length == 0) {
+            throw new JSONPointerException(p + " is not a valid path");
+        }
+
+        //check for syntax
+        for (String k : keys) {
+            if (k.isEmpty()) {
+                throw new JSONPointerException(p + " is not a valid path");
+            }
+        }
+        
 
 
         //String[] keys = path.toString().substring(1)

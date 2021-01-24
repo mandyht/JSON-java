@@ -15,7 +15,6 @@ import java.nio.file.Paths;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONPointer;
-import org.json.JSONPointerException;
 import org.json.XML;
 import org.junit.Test;
 
@@ -62,27 +61,55 @@ public class XMLM2Test {
     public void toJSONObjectEmptyPath() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/");
         JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
-        assertTrue(o instanceof JSONObject);
+        assertTrue(o == null);
 
         JSONObject o2 = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")));
-        assertTrue(o.toString().equals(o2.toString()));
+        Object o3 = o2.optQuery("/");
+        assertTrue(o3 == null);
     }
     
-    @Test (expected = JSONPointerException.class)
+    @Test
     public void toJSONObjectInvalidEmptyPath() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("//");
-        XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        JSONObject o =XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        assertTrue(o == null);
     }
 
-    @Test (expected = JSONPointerException.class)
+    @Test
     public void toJSONObjectInvalidPath() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/resources//string-array");
-        XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+        assertTrue(o == null);
     }
 
     @Test
     public void toJSONObjectStringsXMLReplaceNestedKey() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/resources/string-array");
         JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
+    }
+
+
+    @Test
+    public void toJSONObjectReplaceEmptyPath() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/");
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
+        assertTrue(o == null);
+
+        JSONObject o2 = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")));
+        Object o3 = o2.optQuery("/");
+        assertTrue(o3 == null);
+    }
+    
+    @Test
+    public void toJSONObjectReplaceInvalidEmptyPath() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("//");
+        JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
+        assertTrue(o == null);
+    }
+
+    @Test 
+    public void toJSONObjectReplaceInvalidPath() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/resources//string-array");
+        XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path, new JSONObject());
     }
 }
