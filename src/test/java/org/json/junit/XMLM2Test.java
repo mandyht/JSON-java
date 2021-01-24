@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONPointer;
+import org.json.JSONPointerException;
 import org.json.XML;
 import org.junit.Test;
 
@@ -58,7 +59,7 @@ public class XMLM2Test {
     }
 
     @Test
-    public void toJSONObjectInvalidPath() throws FileNotFoundException {
+    public void toJSONObjectEmptyPath() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/");
         JSONObject o = XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
         assertTrue(o instanceof JSONObject);
@@ -67,6 +68,18 @@ public class XMLM2Test {
         assertTrue(o.toString().equals(o2.toString()));
     }
     
+    @Test (expected = JSONPointerException.class)
+    public void toJSONObjectInvalidEmptyPath() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("//");
+        XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+    }
+
+    @Test (expected = JSONPointerException.class)
+    public void toJSONObjectInvalidPath() throws FileNotFoundException {
+        JSONPointer path = new JSONPointer("/resources//string-array");
+        XML.toJSONObject(new FileReader(new File(DIR, "strings.xml")), path);
+    }
+
     @Test
     public void toJSONObjectStringsXMLReplaceNestedKey() throws FileNotFoundException {
         JSONPointer path = new JSONPointer("/resources/string-array");
