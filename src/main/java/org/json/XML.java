@@ -921,6 +921,12 @@ public class XML {
         XMLTokener token = new XMLTokener(reader);
         JSONObject output = new JSONObject();
         String p = path.toString();
+        
+        //empty path
+        if (p.indexOf("/") + 1 == p.length()) {
+            return toJSONObject(reader);
+        }
+
         String[] keys = p.substring(p.indexOf("/") + 1).split("/");
 
         int index = 0;
@@ -943,7 +949,15 @@ public class XML {
      * @return
      */
     public static JSONObject toJSONObject(Reader reader, JSONPointer path, JSONObject replacement) {
+        String p = path.toString();
+        if (p.indexOf("/") == -1 || p.lastIndexOf("/") + 1 == p.length()) return null;
+
+        String key = p.substring(p.lastIndexOf("/") + 1);
+        
         JSONObject output = toJSONObject(reader);
+        Object value = output.optQuery(path);
+
+
         //String[] keys = path.toString().substring(1)
         
         //Object o2 = output.optQuery(path);
