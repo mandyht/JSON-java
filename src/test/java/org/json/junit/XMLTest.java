@@ -40,6 +40,7 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -1296,5 +1297,51 @@ public class XMLTest {
     public void toJSONObjectReplaceFaultyInput2() {
         JSONPointer path = new JSONPointer("/root");
         XML.toJSONObject(new StringReader(CORRUPTED_XML2), path, new JSONObject());
+    }
+
+    private class AddPrefix implements Function<String, String> {
+
+        @Override
+        public String apply(String t) {
+            return "swe262_" + t;
+        }
+    }
+
+    @Test
+    public void toJSONObjectReplaceKeyStringsXML() {
+        JSONObject o = XML.toJSONObject(new StringReader(STRINGS_XML), new AddPrefix());
+
+        Object resources = o.get("swe262_resources");
+        assertTrue(resources instanceof JSONObject);
+
+        Object string = ((JSONObject) resources).get("swe262_string");
+        assertTrue(string instanceof JSONArray);
+
+        Object name = ((JSONArray) string).getJSONObject(0).get("swe262_name");
+        assertTrue(name instanceof String);
+        assertTrue(name.equals("app_name"));
+    }
+
+    @Test
+    public void toJSONObjectReplaceKeyBooksXML() {
+        JSONObject o = XML.toJSONObject(new StringReader(BOOKS_XML), new AddPrefix());
+
+        Object catalog = o.get("swe262_catalog");
+        assertTrue(catalog instanceof JSONObject);
+
+        Object book = ((JSONObject) catalog).get("swe262_book");
+        assertTrue(book instanceof JSONArray);
+
+        Object book1 = ((JSONArray) book).get(0);
+        assertTrue(book1 instanceof JSONObject);
+       
+        Object author = ((JSONObject) book1).get("swe262_author");
+        assertTrue(author instanceof String);
+        assertTrue(author.equals("Gambardella, Matthew"));
+    }
+
+    @Test (expected = JSONException.class)
+    public void toJSONObjectReplaceKeyInvalidXML() {
+        XML.toJSONObject(new StringReader(CORRUPTED_XML), new AddPrefix());
     }
 }
