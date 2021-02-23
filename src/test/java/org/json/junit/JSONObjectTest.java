@@ -40,6 +40,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -50,6 +51,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.json.CDL;
 import org.json.JSONArray;
@@ -3229,5 +3231,80 @@ public class JSONObjectTest {
         jsonObject.clear(); //Clears the JSONObject
         assertTrue("expected jsonObject.length() == 0", jsonObject.length() == 0); //Check if its length is 0
         jsonObject.getInt("key1"); //Should throws org.json.JSONException: JSONObject["asd"] not found
+    }
+
+    private final static String STRINGS_XML = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                                            + "<resources>\n"
+                                            + "<!-- labels -->\n"
+                                            + "<string name=\"app_name\">Agenda</string>\n"
+                                            + "<string name=\"task_lists\">Task Lists</string>\n"
+                                            + "<string-array name=\"sort_lists_menu\">\n"
+                                            + "<item>Creation date</item>\n"
+                                            + "<item>List name</item>\n"
+                                            + "</string-array>\n"
+                                            + "<string-array name=\"sort_tasks_menu\">\n"
+                                            + "<item>Creation date</item>\n"
+                                            + "<item>Due date</item>\n"
+                                            + "<item>Name</item>\n"
+                                            + "<item>Status</item>\n"
+                                            + "</string-array>\n"
+                                            + "<string name=\"list_name_error\">List name must contain at least 1 alphanumeric character</string>\n"
+                                            + "</resources>";
+
+    @Test
+    public void jsonObjectToStreamTest() {
+        JSONObject obj = XML.toJSONObject("<Books><book><title>AAA</title><author>ASmith</author></book><book><title>BBB</title><author>BSmith</author></book></Books>");
+        obj.toStream().forEach(System.out::println);
+    }
+
+    @Test
+    public void jsonObjectToStreamOnlyTransformValuesOfTagItems() {
+        JSONObject obj = XML.toJSONObject("<Books><book><title>AAA</title><author>ASmith</author></book><book><title>BBB</title><author>BSmith</author></book></Books>");
+        List<Map.Entry<String, Object>> output = new ArrayList<>();
+        
+        obj.toStream().forEach(node -> {
+            node.setValue(String.format("swe262_%s", node.getValue()));
+            output.add(node);
+        });
+
+        List<Map.Entry<String, Object>> expected = new ArrayList<>();
+        expected.add(new AbstractMap.SimpleEntry<>("/Books/book/author", "swe262_ASmith"));
+        expected.add(new AbstractMap.SimpleEntry<>("/Books/book/title", "swe262_AAA"));
+        expected.add(new AbstractMap.SimpleEntry<>("/Books/book/author", "swe262_BSmith"));
+        expected.add(new AbstractMap.SimpleEntry<>("/Books/book/title", "swe262_BBB"));
+
+        assertTrue(output.equals(expected));
+    }
+
+    @Test
+    public void jsonObjectToStreamMap() {
+        JSONObject obj = XML.toJSONObject("<Books><book><title>AAA</title><author>ASmith</author></book><book><title>BBB</title><author>BSmith</author></book></Books>");
+        List<Object> titles = obj.toStream()
+                                 .map(node -> {
+                                     if (node.getKey().contains("title")) return node.getValue();
+                                     return null;
+                                 }).collect(Collectors.toList());
+        
+        List<Object> expected = new ArrayList<>();
+        expected.add(null);
+        expected.add("AAA");
+        expected.add(null);
+        expected.add("BBB");
+
+        assertTrue(titles.equals(expected));
+    }
+
+    @Test
+    public void jsonObjectToStreamFilter() {
+        JSONObject obj = XML.toJSONObject(STRINGS_XML);
+        List<Map.Entry<String, Object>> output = obj.toStream()
+                                                    .filter(node -> node.getKey().contains("string-array/name"))
+                                                    .collect(Collectors.toList());
+
+        List<Map.Entry<String, Object>> expected = new ArrayList<>();
+        expected.add(new AbstractMap.SimpleEntry<>("/resources/string-array/name", "sort_lists_menu"));
+        expected.add(new AbstractMap.SimpleEntry<>("/resources/string-array/name", "sort_tasks_menu"));
+
+        assertTrue(output.equals(expected));
     }
 }

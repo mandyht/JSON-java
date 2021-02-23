@@ -36,6 +36,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -46,6 +47,7 @@ import java.util.Map.Entry;
 import java.util.ResourceBundle;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * A JSONObject is an unordered collection of name/value pairs. Its external
@@ -2353,6 +2355,53 @@ public class JSONObject {
         synchronized (w.getBuffer()) {
             return this.write(w, indentFactor, 0).toString();
         }
+    }
+
+    /**
+     * @author Mandy Tsai
+     * Builds the argument stream by accepting new entries, which use full paths as keys and 
+     * Objects that are neither instances of JSONObject nor of JSONArray as values.
+     * 
+     * 
+     * @param builder a stream builder to accept new nodes with
+     * @param path the path that leads to the current element (excludes the key of the current element)
+     */
+    public void buildStream(Stream.Builder<Map.Entry<String, Object>> builder, String path) {
+        for (Map.Entry<String, Object> entry : this.map.entrySet()) {
+            String key = entry.getKey();
+            Object value = entry.getValue();
+            String currentPath = String.format("%s/%s", path, key);
+
+            if (value instanceof JSONObject) {
+                ((JSONObject) value).buildStream(builder, currentPath);
+            }
+            else if (value instanceof JSONArray) {
+                for (Object v : ((JSONArray) value)) {
+                    if (v instanceof JSONObject) {
+                        ((JSONObject) v).buildStream(builder, currentPath);
+                    }
+                    else {
+                        builder.accept(new AbstractMap.SimpleEntry<String, Object>(currentPath, v));
+                    }
+                }
+            }
+            else {
+                builder.accept(new AbstractMap.SimpleEntry<String, Object>(currentPath, value));
+            }
+        }
+    }
+
+    /**
+     * @author Mandy Tsai
+     * Returns a stream that passes the values of the JSONObject starting from the leaf nodes.
+     * 
+     * @return a stream of map.entry, in which the key is the full path to the current element and the value
+     * is the content of the element
+     */
+    public Stream<Map.Entry<String, Object>> toStream() {
+        Stream.Builder<Map.Entry<String, Object>> builder = Stream.builder();
+        buildStream(builder, "");
+        return builder.build();
     }
 
     /**
