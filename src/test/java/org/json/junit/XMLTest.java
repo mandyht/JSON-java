@@ -40,6 +40,9 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 
 import org.json.JSONArray;
@@ -1344,4 +1347,30 @@ public class XMLTest {
     public void toJSONObjectReplaceKeyInvalidXML() {
         XML.toJSONObject(new StringReader(CORRUPTED_XML), new AddPrefix());
     }
+
+    @Test
+    public void toFutureJSONObject() {
+        Future<JSONObject> future = XML.toFutureJSONObject(new StringReader(STRINGS_XML));
+        try {
+            Object o = future.get();
+            assertTrue(o instanceof JSONObject);
+        }
+        catch (InterruptedException | ExecutionException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void toFutureJSONObjectInvalidXML() {
+        Future<JSONObject> future = XML.toFutureJSONObject(new StringReader(CORRUPTED_XML));
+        try {
+            future.get();
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        catch (ExecutionException e) {
+            assertTrue(e.getCause().getClass().equals(JSONException.class));
+        }
+    }    
 }

@@ -33,6 +33,10 @@ import java.io.StringReader;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Iterator;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.Function;
 
 
@@ -1270,6 +1274,26 @@ public class XML {
             }
         }
         return output;
+    }
+
+    /**
+     * @author Mandy Tsai
+     * Return a non-blocking Future<JSONObject> object
+     * 
+     * @param reader the XML source reader
+     * @return a Future<JSONObject> object, with which the JSONObject object can be obtained
+     */
+    public static Future<JSONObject> toFutureJSONObject(Reader reader) {
+        final ExecutorService pool = Executors.newCachedThreadPool();
+        
+        Future<JSONObject> future = pool.submit(new Callable<JSONObject>() {
+            @Override
+            public JSONObject call() throws Exception {
+                return XML.toJSONObject(reader);
+            }
+        });
+
+        return future;
     }
 
     /**
